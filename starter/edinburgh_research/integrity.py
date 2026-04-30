@@ -82,6 +82,32 @@ def extract_condition_facts(text: str) -> list[str]:
     return [c for c in known if c in tl]
 
 
+def extract_label_values(text: str) -> list[str]:
+    """Extract values after 'Label:' prefixes (Venue/Total/Address/etc.).
+
+    Catches non-numeric fabrications like a fake venue name placed in the
+    Total slot ("Total: Castle Royal Grand Inn"), which the money/temp/
+    condition extractors miss.
+    """
+    stripped = re.sub(r"<[^>]+>", " ", text)
+    known_labels = {
+        "venue", "venue name", "total", "total cost", "address", "venue address",
+        "weather", "condition", "temperature", "date", "time", "deposit",
+        "deposit required", "party size",
+    }
+    out: list[str] = []
+    pattern = re.compile(
+        r"(?:^|\n)\s*([A-Z][A-Za-z ]{2,30}?):\s*([^\n.]+?)(?:\.\s|\.$|\n|$)",
+        re.MULTILINE,
+    )
+    for m in pattern.finditer(stripped):
+        label = m.group(1).strip().lower()
+        value = m.group(2).strip()
+        if label in known_labels and value:
+            out.append(value)
+    return out
+
+
 def extract_testid_facts(text: str) -> dict[str, str]:
     """For HTML flyers that use data-testid, extract {testid: value} pairs.
 
@@ -123,6 +149,7 @@ def verify_dataflow(flyer_content: str) -> IntegrityResult:
     facts_to_check.extend(extract_money_facts(flyer_content))
     facts_to_check.extend(extract_temperature_facts(flyer_content))
     facts_to_check.extend(extract_condition_facts(flyer_content))
+    facts_to_check.extend(extract_label_values(flyer_content))
 
     # De-dupe while preserving order
     seen: set[str] = set()
@@ -170,6 +197,7 @@ __all__ = [
     "_TOOL_CALL_LOG",
     "clear_log",
     "extract_condition_facts",
+    "extract_label_values",
     "extract_money_facts",
     "extract_temperature_facts",
     "extract_testid_facts",
