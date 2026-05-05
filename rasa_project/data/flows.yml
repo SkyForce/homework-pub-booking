@@ -50,3 +50,58 @@ flows:
       - id: confirmed
         action: utter_booking_confirmed
         next: END
+
+  # ─────────────────────────────────────────────────────────────────
+  # resume_from_loop — programmatic re-entry after the loop half hands
+  # off a replacement venue. Uses the same validation gate as
+  # confirm_booking; reuses existing slots/responses so no domain.yml
+  # changes are needed. Trigger: POST {"message": "/resume_from_loop"}.
+  # ─────────────────────────────────────────────────────────────────
+  resume_from_loop:
+    description: >
+      Re-enter booking confirmation after the loop half produced a
+      replacement venue. Triggers when the user sends /resume_from_loop
+      with booking metadata. Emits utter_booking_confirmed_resumed so
+      the trace can distinguish a re-entry from a fresh confirm.
+    steps:
+      - id: validate
+        action: action_validate_booking
+        next:
+          - if: "slots.validation_error is not null"
+            then: rejected
+          - else: confirmed
+      - id: rejected
+        action: utter_booking_rejected
+        next: END
+      - id: confirmed
+        action: utter_booking_confirmed_resumed
+        next: END
+
+  # ─────────────────────────────────────────────────────────────────
+  # request_research — reverse handoff. Triggered when the proposed
+  # booking can't be policy-approved (party_too_large is the canonical
+  # case). Emits a custom payload with action=request_research that
+  # the HandoffBridge picks up and converts into a reverse handoff to
+  # the loop half. Reuses action_validate_booking to populate the
+  # validation_error slot, then routes only the rejection case to the
+  # research request — happy paths still complete normally.
+  # ─────────────────────────────────────────────────────────────────
+  request_research:
+    description: >
+      Bounce back to the loop half because the proposed venue cannot
+      meet policy. Triggers when the user sends /request_research with
+      booking metadata; emits a custom payload the bridge converts
+      into a reverse handoff.
+    steps:
+      - id: validate
+        action: action_validate_booking
+        next:
+          - if: "slots.validation_error is not null"
+            then: ask_research
+          - else: confirmed
+      - id: ask_research
+        action: utter_request_research
+        next: END
+      - id: confirmed
+        action: utter_booking_confirmed
+        next: END

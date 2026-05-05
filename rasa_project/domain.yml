@@ -42,8 +42,18 @@ slots:
 responses:
   utter_booking_confirmed:
     - text: "Booking confirmed. Reference: {booking_reference}."
+  utter_booking_confirmed_resumed:
+    - text: "Booking confirmed after re-research. Reference: {booking_reference}."
+      custom:
+        action: committed
+        resumed_from_loop: true
   utter_booking_rejected:
     - text: "Sorry, we can't accept this booking. Reason: {validation_error}"
+  utter_request_research:
+    - text: "Need a different venue. Reason: {validation_error}"
+      custom:
+        action: request_research
+        reason: "{validation_error}"
 
 actions:
   - action_validate_booking

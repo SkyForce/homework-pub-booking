@@ -157,8 +157,11 @@ class RasaStructuredHalf(StructuredHalf):
 
         confirmed = False
         rejected = False
+        research_requested = False
+        research_reason = ""
         rejection_reason = ""
         booking_reference = None
+        resumed_from_loop = False
         for m in messages:
             if not isinstance(m, dict):
                 continue
@@ -166,15 +169,41 @@ class RasaStructuredHalf(StructuredHalf):
             custom = m.get("custom") or {}
             action = custom.get("action") if isinstance(custom, dict) else None
 
+            if action == "request_research":
+                research_requested = True
+                research_reason = (
+                    (custom.get("reason") if isinstance(custom, dict) else "")
+                    or text
+                    or "request_research"
+                )
+                continue
+
             if action == "committed" or "booking confirmed" in text:
                 confirmed = True
                 if isinstance(custom, dict):
-                    booking_reference = custom.get("booking_reference")
+                    custom_ref = custom.get("booking_reference")
+                    if custom_ref and not booking_reference:
+                        booking_reference = custom_ref
+                    if custom.get("resumed_from_loop"):
+                        resumed_from_loop = True
                 if "reference:" in text and not booking_reference:
                     booking_reference = text.split("reference:", 1)[1].strip().rstrip(".").upper()
             if action == "rejected" or "can't accept" in text or "rejected" in text:
                 rejected = True
                 rejection_reason = text or "rejected by rasa"
+
+        if research_requested:
+            return HalfResult(
+                success=False,
+                output={
+                    "request_research": True,
+                    "reason": research_reason,
+                    "booking": booking,
+                    "rasa_response": messages,
+                },
+                summary=f"rasa requested re-research: {research_reason}",
+                next_action="request_research",
+            )
 
         if confirmed and not rejected:
             return HalfResult(
@@ -183,6 +212,7 @@ class RasaStructuredHalf(StructuredHalf):
                     "committed": True,
                     "booking": booking,
                     "booking_reference": booking_reference,
+                    "resumed_from_loop": resumed_from_loop,
                     "rasa_response": messages,
                 },
                 summary=f"booking confirmed by rasa (ref={booking_reference})",

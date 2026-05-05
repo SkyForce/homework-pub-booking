@@ -91,9 +91,20 @@ def extract_label_values(text: str) -> list[str]:
     """
     stripped = re.sub(r"<[^>]+>", " ", text)
     known_labels = {
-        "venue", "venue name", "total", "total cost", "address", "venue address",
-        "weather", "condition", "temperature", "date", "time", "deposit",
-        "deposit required", "party size",
+        "venue",
+        "venue name",
+        "total",
+        "total cost",
+        "address",
+        "venue address",
+        "weather",
+        "condition",
+        "temperature",
+        "date",
+        "time",
+        "deposit",
+        "deposit required",
+        "party size",
     }
     out: list[str] = []
     pattern = re.compile(

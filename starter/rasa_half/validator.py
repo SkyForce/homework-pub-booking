@@ -87,11 +87,18 @@ def normalise_booking_payload(raw: dict) -> dict:
     if catering not in ("drinks_only", "bar_snacks", "sit_down_meal", "three_course_meal"):
         catering = "bar_snacks"
 
+    # Route to the right flow based on the action field. Default is the
+    # happy-path confirm. resume_from_loop / request_research let the
+    # bridge re-enter mid-scenario or trigger a reverse handoff.
+    action = raw.get("action") or "confirm_booking"
+    if action not in _SUPPORTED_FLOWS:
+        action = "confirm_booking"
+
     stable_suffix = hashlib.sha1(f"{venue_id}-{date_iso}-{time_24h}".encode()).hexdigest()[:8]
 
     return {
         "sender": f"homework-{stable_suffix}",
-        "message": "/confirm_booking",
+        "message": f"/{action}",
         "metadata": {
             "booking": {
                 "venue_id": venue_id,
@@ -104,6 +111,9 @@ def normalise_booking_payload(raw: dict) -> dict:
             }
         },
     }
+
+
+_SUPPORTED_FLOWS = frozenset({"confirm_booking", "resume_from_loop", "request_research"})
 
 
 # ---------------------------------------------------------------------------
